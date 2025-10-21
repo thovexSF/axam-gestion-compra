@@ -33,16 +33,23 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalar dependencias
-RUN npm ci --only=production
+RUN npm ci
 
 # Copiar código fuente
 COPY . .
+
+# Build de Next.js
+RUN npm run build
 
 # Instalar Playwright browsers
 RUN npx playwright install chromium
 
 # Exponer puerto
 EXPOSE 3000
+
+# Variables de entorno
+ENV NODE_ENV=production
+ENV PORT=3000
 
 # Comando de inicio
 CMD ["npm", "start"]
