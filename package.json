@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "npx playwright install chromium"
+    "postinstall": "npx playwright install chromium && npx playwright install-deps"
   },
   "dependencies": {
     "next": "^14.0.0",

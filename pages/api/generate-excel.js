@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   
   try {
     // Configurar Playwright para Vercel
-    browser = await chromium.launch({ 
+    browser = await chromium.launch({
       headless: true,
       args: [
         '--no-sandbox',
@@ -21,7 +21,17 @@ export default async function handler(req, res) {
         '--no-first-run',
         '--no-zygote',
         '--single-process',
-        '--disable-gpu'
+        '--disable-gpu',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor',
+        '--disable-extensions',
+        '--disable-plugins',
+        '--disable-images',
+        '--disable-javascript',
+        '--disable-default-apps',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding'
       ]
     });
     
