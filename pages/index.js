@@ -6,6 +6,10 @@ export default function Home() {
   const [progress, setProgress] = useState('');
   const [downloadUrl, setDownloadUrl] = useState('');
   const [error, setError] = useState('');
+  const [credentials, setCredentials] = useState({
+    username: 'ventasamurai',
+    password: 'Bayona2502'
+  });
 
   const generateExcel = async () => {
     setIsGenerating(true);
@@ -19,6 +23,7 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify(credentials)
       });
 
       if (!response.ok) {
@@ -64,11 +69,36 @@ export default function Home() {
         </p>
 
         <div className="card">
+          <h2>🔐 Credenciales de Acceso</h2>
+          <div className="credentials-form">
+            <div className="input-group">
+              <label htmlFor="username">Usuario:</label>
+              <input
+                type="text"
+                id="username"
+                value={credentials.username}
+                onChange={(e) => setCredentials({...credentials, username: e.target.value})}
+                placeholder="Usuario de ManagerMas"
+              />
+            </div>
+            <div className="input-group">
+              <label htmlFor="password">Contraseña:</label>
+              <input
+                type="password"
+                id="password"
+                value={credentials.password}
+                onChange={(e) => setCredentials({...credentials, password: e.target.value})}
+                placeholder="Contraseña de ManagerMas"
+              />
+            </div>
+          </div>
+
           <h2>📊 Proceso de Generación</h2>
           <ul className="process-list">
-            <li>📈 Obtención de datos de ventas via API</li>
-            <li>📦 Consulta de productos via API</li>
-            <li>📋 Consulta de stock actual via API</li>
+            <li>🔐 Login automático en ManagerMas</li>
+            <li>📦 Extracción de despachos pendientes</li>
+            <li>📈 Obtención de datos de ventas</li>
+            <li>📋 Consulta de stock actual</li>
             <li>📊 Generación del Excel final</li>
           </ul>
 
@@ -163,6 +193,41 @@ export default function Home() {
         .card h2 {
           color: #333;
           margin-bottom: 1rem;
+        }
+
+        .credentials-form {
+          margin: 1.5rem 0;
+          padding: 1rem;
+          background: #f8f9fa;
+          border-radius: 8px;
+          border: 1px solid #e9ecef;
+        }
+
+        .input-group {
+          margin: 1rem 0;
+          text-align: left;
+        }
+
+        .input-group label {
+          display: block;
+          margin-bottom: 0.5rem;
+          font-weight: 600;
+          color: #495057;
+        }
+
+        .input-group input {
+          width: 100%;
+          padding: 0.75rem;
+          border: 1px solid #ced4da;
+          border-radius: 4px;
+          font-size: 1rem;
+          transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus {
+          outline: none;
+          border-color: #4CAF50;
+          box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
         }
 
         .process-list {

@@ -7,12 +7,19 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Obtener credenciales del body
+  const { username, password } = req.body;
+  
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required' });
+  }
+
   let browser;
   
   try {
     // Configurar Playwright para Vercel
     browser = await chromium.launch({
-      headless: true,
+      headless: true, // Mantener headless para Railway
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -38,10 +45,10 @@ export default async function handler(req, res) {
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    // Credenciales
+    // Usar credenciales del request
     const authInfo = {
-      username: 'ventasamurai',
-      password: 'Bayona2502',
+      username: username,
+      password: password,
     };
 
     // Fechas
@@ -66,8 +73,31 @@ export default async function handler(req, res) {
     console.log('🌐 Iniciando login...');
     await page.goto('https://axam.managermas.cl/login/');
     
-    // Esperar a que el usuario haga login manualmente
-    console.log('⏳ Esperando login manual...');
+    // LOGIN AUTOMÁTICO
+    console.log('⏳ Iniciando login automático...');
+    
+    // Wait for login form to load
+    await page.waitForSelector('input[name="username"], input[type="email"], input[type="text"]', { timeout: 10000 });
+    
+    // Fill username
+    await page.fill('input[name="username"], input[type="email"], input[type="text"]', authInfo.username);
+    console.log('👤 Username filled');
+    
+    // Fill password
+    await page.fill('input[name="password"], input[type="password"]', authInfo.password);
+    console.log('🔑 Password filled');
+    
+    // Click login button
+    await page.click('button[type="submit"], input[type="submit"], button:has-text("Login"), button:has-text("Entrar")');
+    console.log('🚀 Login button clicked');
+    
+    // Wait for navigation after login
+    try {
+      await page.waitForNavigation({ waitUntil: 'load', timeout: 15000 });
+      console.log('✅ Login successful! Redirected to dashboard');
+    } catch (e) {
+      console.log('⚠️ Navigation timeout, but login might have succeeded');
+    }
     
     // Detectar login exitoso
     const loginSuccessSelectors = [
