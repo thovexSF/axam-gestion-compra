@@ -87,6 +87,92 @@ export default async function handler(req, res) {
     await page.fill('input[name="password"], input[type="password"]', authInfo.password);
     console.log('🔑 Password filled');
     
+    // Check for reCAPTCHA v2 (both visible and invisible)
+    console.log('🤖 Verificando reCAPTCHA...');
+    const recaptchaInfo = await page.evaluate(() => {
+      const recaptchaFrame = document.querySelector('iframe[src*="recaptcha"]');
+      const recaptchaResponse = document.querySelector('#g-recaptcha-response');
+      const recaptchaElement = document.querySelector('[data-sitekey]');
+      
+      return {
+        hasFrame: !!recaptchaFrame,
+        hasResponse: !!recaptchaResponse,
+        hasElement: !!recaptchaElement,
+        siteKey: recaptchaElement ? recaptchaElement.getAttribute('data-sitekey') : null
+      };
+    });
+    
+    if (recaptchaInfo.hasFrame || recaptchaInfo.hasElement) {
+      console.log('🤖 reCAPTCHA v2 detectado');
+      if (recaptchaInfo.siteKey) {
+        console.log(`🤖 Site key: ${recaptchaInfo.siteKey}`);
+      }
+      
+      // Wait a bit for invisible reCAPTCHA to solve itself
+      console.log('🤖 Esperando que reCAPTCHA se resuelva automáticamente...');
+      
+      // Simulate some user interactions that might help invisible reCAPTCHA
+      await page.mouse.move(100, 100);
+      await page.waitForTimeout(1000);
+      await page.mouse.move(200, 200);
+      await page.waitForTimeout(1000);
+      
+      // Move mouse over the form area to trigger reCAPTCHA
+      const form = await page.$('form');
+      if (form) {
+        const box = await form.boundingBox();
+        if (box) {
+          await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+          await page.waitForTimeout(2000);
+        }
+      }
+      
+      await page.waitForTimeout(2000);
+      
+      // Check if reCAPTCHA was solved
+      const recaptchaSolved = await page.evaluate(() => {
+        const response = document.querySelector('#g-recaptcha-response');
+        return response && response.value && response.value.length > 0;
+      });
+      
+      if (recaptchaSolved) {
+        console.log('✅ reCAPTCHA resuelto automáticamente');
+      } else {
+        console.log('⚠️ reCAPTCHA no se resolvió automáticamente');
+        
+        // Check if it's a visible reCAPTCHA checkbox that needs to be clicked
+        const visibleRecaptcha = await page.$('.recaptcha-checkbox-border, .g-recaptcha');
+        if (visibleRecaptcha) {
+          console.log('🤖 Detectado reCAPTCHA visible, intentando hacer clic...');
+          try {
+            await visibleRecaptcha.click();
+            console.log('🤖 Clic en reCAPTCHA realizado');
+            
+            // Wait for reCAPTCHA to be solved after click
+            await page.waitForTimeout(3000);
+            
+            // Check again if it's solved
+            const recaptchaSolvedAfterClick = await page.evaluate(() => {
+              const response = document.querySelector('#g-recaptcha-response');
+              return response && response.value && response.value.length > 0;
+            });
+            
+            if (recaptchaSolvedAfterClick) {
+              console.log('✅ reCAPTCHA resuelto después del clic');
+            } else {
+              console.log('⚠️ reCAPTCHA aún no resuelto después del clic');
+            }
+          } catch (e) {
+            console.log('⚠️ Error al hacer clic en reCAPTCHA:', e.message);
+          }
+        } else {
+          console.log('🤖 reCAPTCHA invisible detectado, continuando...');
+        }
+      }
+    } else {
+      console.log('✅ No se detectó reCAPTCHA');
+    }
+    
     // Click login button
     await page.click('button[type="submit"], input[type="submit"], button:has-text("Login"), button:has-text("Entrar")');
     console.log('🚀 Login button clicked');
