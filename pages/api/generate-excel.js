@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   let browser;
   
   try {
-    // Configurar Playwright para Vercel
+    // Configurar Playwright para Railway
     browser = await chromium.launch({
       headless: true, // Mantener headless para Railway
       args: [
@@ -33,17 +33,38 @@ export default async function handler(req, res) {
         '--disable-features=VizDisplayCompositor',
         '--disable-extensions',
         '--disable-plugins',
-        '--disable-images',
-        '--disable-javascript',
         '--disable-default-apps',
         '--disable-background-timer-throttling',
         '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding'
+        '--disable-renderer-backgrounding',
+        '--disable-background-networking',
+        '--disable-background-sync',
+        '--disable-client-side-phishing-detection',
+        '--disable-component-update',
+        '--disable-domain-reliability',
+        '--disable-features=TranslateUI',
+        '--disable-ipc-flooding-protection',
+        '--disable-sync',
+        '--metrics-recording-only',
+        '--no-default-browser-check',
+        '--no-pings',
+        '--password-store=basic',
+        '--use-mock-keychain'
       ]
     });
     
-    const context = await browser.newContext();
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      viewport: { width: 1920, height: 1080 },
+      locale: 'es-ES',
+      timezoneId: 'America/Santiago'
+    });
+    
     const page = await context.newPage();
+    
+    // Configurar timeouts más largos para Railway
+    page.setDefaultTimeout(30000);
+    page.setDefaultNavigationTimeout(30000);
 
     // Usar credenciales del request
     const authInfo = {
