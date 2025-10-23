@@ -179,48 +179,87 @@ export default async function handler(req, res) {
     
     // Wait for navigation after login
     try {
-      await page.waitForNavigation({ waitUntil: 'load', timeout: 15000 });
+      await page.waitForNavigation({ waitUntil: 'load', timeout: 10000 });
       console.log('✅ Login successful! Redirected to dashboard');
     } catch (e) {
       console.log('⚠️ Navigation timeout, but login might have succeeded');
     }
     
-    // Detectar login exitoso
-    const loginSuccessSelectors = [
-      'a[href*="logout"]',
-      'a[href*="salir"]',
-      'button[onclick*="logout"]',
-      '.user-menu',
-      '.profile',
-      '[class*="dashboard"]',
-      '[class*="menu"]',
-      'nav',
-      '.navbar'
-    ];
+    // Detectar login exitoso con lógica mejorada
+    console.log('🔍 Verificando estado del login...');
     
     let loginDetected = false;
     let attempts = 0;
-    const maxAttempts = 300; // 15 minutos max wait
+    const maxAttempts = 60; // 3 minutos max wait (reducido de 15 minutos)
     
     while (attempts < maxAttempts && !loginDetected) {
+      const currentUrl = page.url();
+      console.log(`🔍 URL actual: ${currentUrl}`);
+      
+      // Verificar si ya no estamos en la página de login
+      if (!currentUrl.includes('/login') && !currentUrl.includes('login')) {
+        loginDetected = true;
+        console.log(`✅ Login detectado por redirección! URL: ${currentUrl}`);
+        break;
+      }
+      
+      // Verificar si hay elementos que indiquen login exitoso
+      const loginSuccessSelectors = [
+        'a[href*="logout"]',
+        'a[href*="salir"]', 
+        'button[onclick*="logout"]',
+        '.user-menu',
+        '.profile',
+        '[class*="dashboard"]',
+        '[class*="menu"]',
+        'nav',
+        '.navbar',
+        'a[href*="dashboard"]',
+        'a[href*="home"]',
+        '.main-content',
+        '.content'
+      ];
+      
       for (const selector of loginSuccessSelectors) {
-        const element = await page.$(selector);
-        if (element) {
-          loginDetected = true;
-          console.log(`✅ Login detectado!`);
-          break;
+        try {
+          const element = await page.$(selector);
+          if (element) {
+            loginDetected = true;
+            console.log(`✅ Login detectado por elemento: ${selector}`);
+            break;
+          }
+        } catch (e) {
+          // Continuar con el siguiente selector
         }
       }
       
-      const currentUrl = page.url();
-      if (!currentUrl.includes('/login') && !currentUrl.includes('login')) {
-        loginDetected = true;
-        console.log(`✅ Login detectado por redirección!`);
+      // Verificar si hay mensajes de error de login
+      const errorSelectors = [
+        '.error',
+        '.alert-danger',
+        '.login-error',
+        '[class*="error"]',
+        'text="Invalid"',
+        'text="Error"',
+        'text="Incorrect"'
+      ];
+      
+      for (const selector of errorSelectors) {
+        try {
+          const errorElement = await page.$(selector);
+          if (errorElement) {
+            const errorText = await errorElement.textContent();
+            console.log(`❌ Error de login detectado: ${errorText}`);
+            throw new Error(`Login failed: ${errorText}`);
+          }
+        } catch (e) {
+          // Continuar verificando
+        }
       }
       
       if (!loginDetected) {
         attempts++;
-        if (attempts % 20 === 0) {
+        if (attempts % 10 === 0) {
           console.log(`⏳ Esperando login... (${attempts * 3}s)`);
         }
         await page.waitForTimeout(3000);
@@ -228,7 +267,8 @@ export default async function handler(req, res) {
     }
     
     if (!loginDetected) {
-      throw new Error('Timeout esperando login');
+      console.log('❌ Login timeout - no se pudo detectar login exitoso');
+      throw new Error('Login timeout - no se pudo completar el proceso de login');
     }
 
     // OBTENER DESPACHOS PENDIENTES
