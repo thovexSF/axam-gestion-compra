@@ -349,7 +349,7 @@ export default async function handler(req, res) {
     
     let loginDetected = false;
     let attempts = 0;
-    const maxAttempts = 60; // 3 minutos max wait (reducido de 15 minutos)
+    const maxAttempts = 20; // 1 minuto max wait (reducido para Railway)
     
     while (attempts < maxAttempts && !loginDetected) {
       const currentUrl = page.url();
@@ -360,6 +360,17 @@ export default async function handler(req, res) {
         loginDetected = true;
         console.log(`✅ Login detectado por redirección! URL: ${currentUrl}`);
         break;
+      }
+      
+      // Verificar si hay mensajes de error específicos
+      const errorMessages = await page.evaluate(() => {
+        const errorElements = document.querySelectorAll('.error, .alert, .message, [class*="error"]');
+        return Array.from(errorElements).map(el => el.textContent).filter(text => text && text.trim().length > 0);
+      });
+      
+      if (errorMessages.length > 0) {
+        console.log(`❌ Errores detectados: ${errorMessages.join(', ')}`);
+        throw new Error(`Login failed: ${errorMessages.join(', ')}`);
       }
       
       // Verificar si hay elementos que indiquen login exitoso
@@ -376,19 +387,35 @@ export default async function handler(req, res) {
         'a[href*="dashboard"]',
         'a[href*="home"]',
         '.main-content',
-        '.content'
+        '.content',
+        'h1', 'h2', 'h3', // Títulos de página
+        'table', // Tablas de datos
+        'form' // Formularios
       ];
       
       for (const selector of loginSuccessSelectors) {
         try {
           const element = await page.$(selector);
           if (element) {
-            loginDetected = true;
-            console.log(`✅ Login detectado por elemento: ${selector}`);
-            break;
+            const isVisible = await element.isVisible();
+            if (isVisible) {
+              loginDetected = true;
+              console.log(`✅ Login detectado por elemento visible: ${selector}`);
+              break;
+            }
           }
         } catch (e) {
           // Continuar con el siguiente selector
+        }
+      }
+      
+      // Verificar también por contenido específico de la página
+      const pageContent = await page.textContent('body');
+      if (pageContent && pageContent.length > 100) { // Página con contenido sustancial
+        if (!pageContent.includes('login') && !pageContent.includes('Login')) {
+          loginDetected = true;
+          console.log(`✅ Login detectado por contenido de página`);
+          break;
         }
       }
       
