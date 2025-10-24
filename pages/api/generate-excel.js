@@ -410,9 +410,9 @@ export default async function handler(req, res) {
       }
       
       // Verificar también por contenido específico de la página
-      const pageContent = await page.textContent('body');
-      if (pageContent && pageContent.length > 100) { // Página con contenido sustancial
-        if (!pageContent.includes('login') && !pageContent.includes('Login')) {
+      const pageTextContent = await page.textContent('body');
+      if (pageTextContent && pageTextContent.length > 100) { // Página con contenido sustancial
+        if (!pageTextContent.includes('login') && !pageTextContent.includes('Login')) {
           loginDetected = true;
           console.log(`✅ Login detectado por contenido de página`);
           break;
@@ -449,8 +449,8 @@ export default async function handler(req, res) {
       }
       
       // Verificar también por texto específico en la página
-      const pageContent = await page.content();
-      const errorMessages = [
+      const pageHtmlContent = await page.content();
+      const specificErrorMessages = [
         'Invalid username',
         'Invalid password', 
         'Credenciales incorrectas',
@@ -461,8 +461,8 @@ export default async function handler(req, res) {
         'Please complete the reCAPTCHA'
       ];
       
-      for (const errorMsg of errorMessages) {
-        if (pageContent.includes(errorMsg)) {
+      for (const errorMsg of specificErrorMessages) {
+        if (pageHtmlContent.includes(errorMsg)) {
           console.log(`❌ Error detectado en contenido: ${errorMsg}`);
           throw new Error(`Login failed: ${errorMsg}`);
         }
