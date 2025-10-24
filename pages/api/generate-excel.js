@@ -17,10 +17,15 @@ export default async function handler(req, res) {
   let browser;
   
   try {
-    // Configurar Playwright para Railway
+    // Configurar Playwright - adaptado para local y Railway
+    const isLocal = process.env.NODE_ENV === 'development';
+    
     browser = await chromium.launch({
-      headless: true, // Mantener headless para Railway
-      args: [
+      headless: isLocal ? false : true, // Mostrar browser en local para debugging
+      args: isLocal ? [
+        '--no-sandbox',
+        '--disable-setuid-sandbox'
+      ] : [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
@@ -90,9 +95,25 @@ export default async function handler(req, res) {
       return parseFloat(normalized) || 0;
     }
 
+    // Verificar que el browser esté abierto
+    if (browser && !browser.isConnected()) {
+      throw new Error('Browser se cerró inesperadamente');
+    }
+    
     // LOGIN
     console.log('🌐 Iniciando login...');
-    await page.goto('https://axam.managermas.cl/login/');
+    console.log(`🔍 Browser conectado: ${browser.isConnected()}`);
+    
+    try {
+      await page.goto('https://axam.managermas.cl/login/', { 
+        waitUntil: 'domcontentloaded',
+        timeout: 30000 
+      });
+      console.log('✅ Página de login cargada');
+    } catch (error) {
+      console.log('❌ Error navegando a login:', error.message);
+      throw error;
+    }
     
     // LOGIN AUTOMÁTICO
     console.log('⏳ Iniciando login automático...');
@@ -189,6 +210,17 @@ export default async function handler(req, res) {
         } else {
           console.log('🤖 reCAPTCHA invisible detectado, continuando...');
         }
+        
+        // Verificar si reCAPTCHA está bloqueando el login
+        const recaptchaError = await page.evaluate(() => {
+          const errorElements = document.querySelectorAll('.recaptcha-error, .g-recaptcha-error, [class*="recaptcha-error"]');
+          return errorElements.length > 0 ? errorElements[0].textContent : null;
+        });
+        
+        if (recaptchaError) {
+          console.log(`❌ Error de reCAPTCHA: ${recaptchaError}`);
+          throw new Error(`reCAPTCHA error: ${recaptchaError}`);
+        }
       }
     } else {
       console.log('✅ No se detectó reCAPTCHA');
@@ -260,9 +292,12 @@ export default async function handler(req, res) {
         '.alert-danger',
         '.login-error',
         '[class*="error"]',
-        'text="Invalid"',
-        'text="Error"',
-        'text="Incorrect"'
+        '.alert',
+        '.message',
+        '.notification',
+        '[role="alert"]',
+        '.invalid-feedback',
+        '.form-error'
       ];
       
       for (const selector of errorSelectors) {
@@ -270,11 +305,33 @@ export default async function handler(req, res) {
           const errorElement = await page.$(selector);
           if (errorElement) {
             const errorText = await errorElement.textContent();
-            console.log(`❌ Error de login detectado: ${errorText}`);
-            throw new Error(`Login failed: ${errorText}`);
+            if (errorText && errorText.trim().length > 0) {
+              console.log(`❌ Error de login detectado (${selector}): ${errorText.trim()}`);
+              throw new Error(`Login failed: ${errorText.trim()}`);
+            }
           }
         } catch (e) {
           // Continuar verificando
+        }
+      }
+      
+      // Verificar también por texto específico en la página
+      const pageContent = await page.content();
+      const errorMessages = [
+        'Invalid username',
+        'Invalid password', 
+        'Credenciales incorrectas',
+        'Usuario o contraseña incorrectos',
+        'Login failed',
+        'Authentication failed',
+        'reCAPTCHA verification failed',
+        'Please complete the reCAPTCHA'
+      ];
+      
+      for (const errorMsg of errorMessages) {
+        if (pageContent.includes(errorMsg)) {
+          console.log(`❌ Error detectado en contenido: ${errorMsg}`);
+          throw new Error(`Login failed: ${errorMsg}`);
         }
       }
       
