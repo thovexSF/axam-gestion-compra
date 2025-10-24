@@ -17,31 +17,28 @@ export default async function handler(req, res) {
   let browser;
   
   try {
-    // Configurar Playwright - adaptado para local y Railway
-    const isLocal = process.env.NODE_ENV === 'development';
+    // Configurar Playwright - optimizado para Railway
+    const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
     
     browser = await chromium.launch({
-      headless: isLocal ? false : true, // Mostrar browser en local para debugging
-      args: isLocal ? [
-        '--no-sandbox',
-        '--disable-setuid-sandbox'
-      ] : [
+      headless: true, // SIEMPRE headless en Railway
+      args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
         '--disable-gpu',
         '--disable-web-security',
         '--disable-features=VizDisplayCompositor',
+        '--no-first-run',
         '--disable-extensions',
         '--disable-plugins',
         '--disable-default-apps',
         '--disable-background-timer-throttling',
         '--disable-backgrounding-occluded-windows',
         '--disable-renderer-backgrounding',
+        '--single-process',
+        '--no-zygote',
+        '--disable-accelerated-2d-canvas',
         '--disable-background-networking',
         '--disable-background-sync',
         '--disable-client-side-phishing-detection',
@@ -68,8 +65,8 @@ export default async function handler(req, res) {
     const page = await context.newPage();
     
     // Configurar timeouts más largos para Railway
-    page.setDefaultTimeout(30000);
-    page.setDefaultNavigationTimeout(30000);
+    page.setDefaultTimeout(60000); // 60 segundos
+    page.setDefaultNavigationTimeout(60000); // 60 segundos
 
     // Usar credenciales del request
     const authInfo = {
@@ -107,7 +104,7 @@ export default async function handler(req, res) {
     try {
       await page.goto('https://axam.managermas.cl/login/', { 
         waitUntil: 'domcontentloaded',
-        timeout: 30000 
+        timeout: 60000 // 60 segundos para Railway
       });
       console.log('✅ Página de login cargada');
     } catch (error) {
@@ -118,16 +115,125 @@ export default async function handler(req, res) {
     // LOGIN AUTOMÁTICO
     console.log('⏳ Iniciando login automático...');
     
-    // Wait for login form to load
-    await page.waitForSelector('input[name="username"], input[type="email"], input[type="text"]', { timeout: 10000 });
+    // Wait for login form to load with múltiples selectores
+    console.log('🔍 Esperando formulario de login...');
     
-    // Fill username
-    await page.fill('input[name="username"], input[type="email"], input[type="text"]', authInfo.username);
-    console.log('👤 Username filled');
+    const loginSelectors = [
+      'input[name="username"]',
+      'input[name="user"]', 
+      'input[name="email"]',
+      'input[type="email"]',
+      'input[type="text"]',
+      'input[placeholder*="usuario"]',
+      'input[placeholder*="email"]',
+      'input[placeholder*="login"]',
+      'input[id*="username"]',
+      'input[id*="user"]',
+      'input[id*="email"]',
+      'input[id*="login"]',
+      'form input[type="text"]',
+      'form input[type="email"]'
+    ];
     
-    // Fill password
-    await page.fill('input[name="password"], input[type="password"]', authInfo.password);
-    console.log('🔑 Password filled');
+    let loginFormFound = false;
+    let foundSelector = '';
+    
+    for (const selector of loginSelectors) {
+      try {
+        await page.waitForSelector(selector, { timeout: 5000 });
+        console.log(`✅ Campo de login encontrado: ${selector}`);
+        loginFormFound = true;
+        foundSelector = selector;
+        break;
+      } catch (e) {
+        // Continuar con el siguiente selector
+      }
+    }
+    
+    if (!loginFormFound) {
+      console.log('❌ No se encontró campo de login, intentando con selectores más amplios...');
+      
+      // Intentar con selectores más generales
+      const generalSelectors = [
+        'input',
+        'form',
+        'body'
+      ];
+      
+      for (const selector of generalSelectors) {
+        try {
+          await page.waitForSelector(selector, { timeout: 3000 });
+          console.log(`✅ Elemento encontrado: ${selector}`);
+          break;
+        } catch (e) {
+          // Continuar
+        }
+      }
+      
+      // Tomar screenshot para debugging
+      await page.screenshot({ path: 'login-debug.png' });
+      console.log('📸 Screenshot guardado para debugging');
+    }
+    
+    // Fill username con múltiples intentos
+    console.log('👤 Llenando username...');
+    const usernameSelectors = [
+      'input[name="username"]',
+      'input[name="user"]',
+      'input[name="email"]',
+      'input[type="email"]',
+      'input[type="text"]',
+      'input[placeholder*="usuario"]',
+      'input[placeholder*="email"]',
+      'input[placeholder*="login"]',
+      'input[id*="username"]',
+      'input[id*="user"]',
+      'input[id*="email"]',
+      'input[id*="login"]'
+    ];
+    
+    let usernameFilled = false;
+    for (const selector of usernameSelectors) {
+      try {
+        await page.fill(selector, authInfo.username);
+        console.log(`✅ Username filled con selector: ${selector}`);
+        usernameFilled = true;
+        break;
+      } catch (e) {
+        // Continuar con el siguiente selector
+      }
+    }
+    
+    if (!usernameFilled) {
+      console.log('❌ No se pudo llenar username');
+    }
+    
+    // Fill password con múltiples intentos
+    console.log('🔑 Llenando password...');
+    const passwordSelectors = [
+      'input[name="password"]',
+      'input[type="password"]',
+      'input[placeholder*="password"]',
+      'input[placeholder*="contraseña"]',
+      'input[id*="password"]',
+      'input[id*="pass"]'
+    ];
+    
+    let passwordFilled = false;
+    for (const selector of passwordSelectors) {
+      try {
+        await page.fill(selector, authInfo.password);
+        console.log(`✅ Password filled con selector: ${selector}`);
+        passwordFilled = true;
+        break;
+      } catch (e) {
+        // Continuar con el siguiente selector
+      }
+    }
+    
+    if (!passwordFilled) {
+      console.log('❌ No se pudo llenar password');
+    }
     
     // Check for reCAPTCHA v2 (both visible and invisible)
     console.log('🤖 Verificando reCAPTCHA...');
